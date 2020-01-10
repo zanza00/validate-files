@@ -1,0 +1,23 @@
+{
+  "wonder-woman": {
+    "key": "wonder-woman",
+    "name": "Diana",
+    "heroName": "Wonder Woman",
+    "year": 1941,
+    "origin": "Amazons"
+  },
+  "superman": {
+    "key": "superman",
+    "name": "Kal El",
+    "heroName": "Superman",
+    "year": 1938,
+    "origin": "Krypton"
+  },
+  "green-lantern": {
+    "key": "green-lantern",
+    "name": "Hal Jordan",
+    "heroName": "Green Lantern",
+    "year": 1959,
+    "origin": "Earth"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "justice-league": {
+    "zone": "Low Earth Orbit",
+    "heroes": ["superman", "wonder-woman", "green-lantern"]
+  },
+  "justice-society": {
+    "zone": "America",
+    "heroes": ["superman"]
+  },
+  "green-lanterns-core": {
+    "zone": "OA",
+    "heroes": ["green-lantern"],
+    "tags": ["Green"]
+  }
+}

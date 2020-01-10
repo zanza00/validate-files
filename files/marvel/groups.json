@@ -1,0 +1,16 @@
+{
+  "avengers": {
+    "zone": "New York",
+    "heroes": ["wolverine", "spiderman", "thor"]
+  },
+  "xmen": {
+    "zone": "Cheesik",
+    "heroes": ["wolverine"],
+    "tags": ["mutant", "xavier childs"]
+  },
+  "new asgardians": {
+    "zone": "New Asgard",
+    "heroes": ["thor"],
+    "tags": ["gods"]
+  }
+}

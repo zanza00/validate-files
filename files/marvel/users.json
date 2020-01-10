@@ -1,0 +1,23 @@
+{
+  "spider-man": {
+    "key": "spider-man",
+    "name": "Peter Parker",
+    "heroName": "The Amazing Spider-Man",
+    "year": 1962,
+    "origin": "New York"
+  },
+  "thor": {
+    "key": "thor",
+    "name": "Thor Odinson",
+    "heroName": "The Mighty Thor",
+    "year": 1962,
+    "origin": "Asgard"
+  },
+  "wolverine": {
+    "key": "wolverine",
+    "name": "James Howlett",
+    "heroName": "Wolverine",
+    "year": 1974,
+    "origin": "Canada"
+  }
+}
