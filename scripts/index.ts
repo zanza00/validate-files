@@ -5,16 +5,22 @@ import * as A from "fp-ts/lib/Array";
 import * as TE from "fp-ts/lib/TaskEither";
 import * as E from "fp-ts/lib/Either";
 import * as O from "fp-ts/lib/Option";
+import * as NEA from "fp-ts/lib/NonEmptyArray";
 import { pipe } from "fp-ts/lib/pipeable";
 
 import { Groups, Heroes } from "./models";
 
-const readFile = TE.taskify(fs.readFile);
+// make fs.readfile a taskeither
+const readFile: (
+  a: string | number | Buffer
+) => TE.TaskEither<NodeJS.ErrnoException, Buffer> = TE.taskify(fs.readFile);
 
+// Error Handling: print "undefined"
 const jsToString = (value: t.mixed) =>
   value === undefined ? "undefined" : JSON.stringify(value);
 
-function formatError(error: t.ValidationError) {
+// Error Handling: pretty print of a single validation Errors
+function formatError(error: t.ValidationError): O.Option<string> {
   const path = error.context
     .map(c => c.key)
     .filter(key => key.length > 0)
@@ -34,37 +40,55 @@ function formatError(error: t.ValidationError) {
     })
   );
 }
-function decodeErrors(file: string, e: t.Errors): Error {
-  const missingKeysMessage = pipe(
-    e.map(a => formatError(a)),
+
+// Error Handling: Print all validation errors with the fileneame
+function decodeErrors(
+  filePath: string,
+  errors: t.Errors
+): NEA.NonEmptyArray<Error> {
+  const missingKeysMessage: string = pipe(
+    errors.map(e => formatError(e)),
+    // swap from Array<Option<string>> to Option<Array<string>> for easier handling
     A.array.sequence(O.option),
     O.fold(
       () => "no errors",
-      err => [`Problem in file ${file}`, err].join("\n")
+      err => [`Problem in file ${filePath}`, err].join("\n")
     )
   );
-  return new Error(`${missingKeysMessage}`);
+  return [new Error(`${missingKeysMessage}`)];
 }
 
-function parseFile<C extends t.TypeC<any>>({
-  file,
-  codec
-}: {
-  file: string;
-  codec: C;
-}): TE.TaskEither<Error, t.TypeOf<C>> {
+// File Handler: decode a file after is read by fs.readfile
+function parseJsonFile(
+  buffer: Buffer
+): TE.TaskEither<NEA.NonEmptyArray<Error>, unknown> {
+  const stringToBeParsed = buffer.toString("utf8");
+  return TE.fromEither(
+    E.parseJSON(stringToBeParsed, e => NEA.of(E.toError(e)))
+  );
+}
+
+// validate the file with io-ts codec
+function validateShapeAndContent(
+  fileData: unknown,
+  filePath: string,
+  codec: t.Type<any>
+) {
   return pipe(
-    readFile(file),
-    TE.chain(buffer => {
-      const stringToBeParsed = buffer.toString("utf8");
-      return TE.fromEither(E.parseJSON(stringToBeParsed, E.toError));
-    }),
-    TE.chain(fileData => {
-      return pipe(
-        TE.fromEither(codec.decode(fileData)),
-        TE.mapLeft(e => decodeErrors(file, e))
-      );
-    })
+    TE.fromEither(codec.decode(fileData)),
+    TE.mapLeft(e => decodeErrors(filePath, e))
+  );
+}
+
+function parseFile<A>(
+  filePath: string,
+  codec: t.Type<any>
+): TE.TaskEither<NEA.NonEmptyArray<Error>, A> {
+  return pipe(
+    readFile(filePath),
+    TE.mapLeft(e => NEA.of(e)), // widen the type of errors from Error to NonEmptyArray<Error>
+    TE.chain(parseJsonFile),
+    TE.chain(fileData => validateShapeAndContent(fileData, filePath, codec))
   );
 }
 
@@ -75,24 +99,31 @@ const filesMap = [
   { file: "files/marvel/users.json", codec: Heroes }
 ];
 
-const validateAllFiles = A.array.sequence(TE.taskEither)(
-  filesMap.map(x => {
-    const codec = (x.codec as unknown) as t.TypeC<any>;
-    return parseFile({ file: x.file, codec });
-  })
+// This enables us to accumulate the errors and not exit on first error
+// based on https://dev.to/gcanti/getting-started-with-fp-ts-either-vs-validation-5eja
+const applicativeValidation = TE.getTaskValidation(NEA.getSemigroup<Error>());
+
+// this sequence is needed accumulate errors AND to swap from Array<TaskEither<E,A>> to TaskEither<E[], A[]>
+const validateAllFiles = A.array.sequence(applicativeValidation)(
+  filesMap.map(x => parseFile(x.file, x.codec))
 );
 
+// The main program.
+// The taskeither is executed only when main is invoked
 function main() {
   validateAllFiles().then(result => {
     pipe(
       result,
       E.fold(
-        e => {
+        errors => {
           console.log("Some error occurred :(");
-          console.log(e.message);
+          errors.forEach(e => {
+            console.log(e.message);
+            console.log("--");
+          });
           process.exit(1);
         },
-        ok => {
+        () => {
           console.log("Succesfully validated files");
         }
       )
