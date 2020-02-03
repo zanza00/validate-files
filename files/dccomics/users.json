@@ -4,20 +4,23 @@
     "name": "Diana",
     "heroName": "Wonder Woman",
     "year": 1941,
-    "origin": "Amazons"
+    "origin": "Amazons",
+    "version": "1.0.1"
   },
   "superman": {
     "key": "superman",
     "name": "Kal El",
     "heroName": "Superman",
     "year": 1938,
-    "origin": "Krypton"
+    "origin": "Krypton",
+    "version": "1.9.0"
   },
   "green-lantern": {
     "key": "green-lantern",
     "name": "Hal Jordan",
     "heroName": "Green Lantern",
     "year": 1959,
-    "origin": "Earth"
+    "origin": "Earth",
+    "version": "3.1.0"
   }
 }

@@ -4,20 +4,23 @@
     "name": "Peter Parker",
     "heroName": "The Amazing Spider-Man",
     "year": 1962,
-    "origin": "New York"
+    "origin": "New York",
+    "version": "1.0.1"
   },
   "thor": {
     "key": "thor",
     "name": "Thor Odinson",
     "heroName": "The Mighty Thor",
     "year": 1962,
-    "origin": "Asgard"
+    "origin": "Asgard",
+    "version": "1.0.1"
   },
   "wolverine": {
     "key": "wolverine",
     "name": "James Howlett",
     "heroName": "Wolverine",
     "year": 1974,
-    "origin": "Canada"
+    "origin": "Canada",
+    "version": "1.0.1"
   }
 }
