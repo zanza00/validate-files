@@ -3,6 +3,7 @@ import * as t from "io-ts";
 import { Lens } from "monocle-ts";
 import { pipe } from "fp-ts/lib/pipeable";
 import * as TE from "fp-ts/lib/TaskEither";
+import * as T from "fp-ts/lib/Task";
 import * as E from "fp-ts/lib/Either";
 
 import { Heroes, SemVer } from "./models";
@@ -57,7 +58,7 @@ type DecodingError = {
 type ErrorAdt = ArgError | FileReadError | FileWriteError | DecodingError;
 
 export const CliArgs = t.type({
-  module: AvailHeroes,
+  hero: AvailHeroes,
   version: SemVer
 });
 export type CliArgs = t.TypeOf<typeof CliArgs>;
@@ -78,10 +79,9 @@ function parseJsonFile(
 }
 
 const args = {
-  module: process.argv[2],
+  hero: process.argv[2],
   version: process.argv[3]
 };
-console.log(args);
 
 function readAndValidateArgs(): E.Either<ErrorAdt, CliArgs> {
   return pipe(
@@ -99,10 +99,10 @@ function readAndValidateArgs(): E.Either<ErrorAdt, CliArgs> {
 
 function changeVersion(
   scope: Scope,
-  module: AvailHeroes,
+  hero: AvailHeroes,
   newVersion: SemVer
 ): TE.TaskEither<ErrorAdt, Heroes> {
-  const version = Lens.fromPath<Heroes>()([module, "version"]);
+  const version = Lens.fromPath<Heroes>()([hero, "version"]);
   const file = `files/${scope}/users.json`;
   return pipe(
     readFile(file),
@@ -120,10 +120,10 @@ function changeVersion(
       pipe(
         TE.fromEither(Heroes.decode(fileData)),
         TE.mapLeft(
-          e =>
+          err =>
             ({
               type: "DecodingError",
-              message: "Error while decoding users.json"
+              message: err.map(e => formatError(e)).join("\n")
             } as ErrorAdt)
         )
       )
@@ -170,29 +170,79 @@ function saveFile(
   );
 }
 
+type MetaData = {
+  scope: Scope;
+  hero: AvailHeroes;
+  version: string;
+  file: string;
+};
+const program: TE.TaskEither<ErrorAdt, MetaData> = pipe(
+  TE.fromEither(readAndValidateArgs()),
+  TE.map(args => {
+    console.log("Arguments are valid :)");
+    return { ...args, scope: heroes[args.hero][0] };
+  }),
+  TE.chain(args =>
+    pipe(
+      changeVersion(args.scope, args.hero, args.version),
+      TE.map(result => ({ result, args }))
+    )
+  ),
+  TE.map(nv => {
+    console.log("Succesfully modified value, attempting to write");
+    return nv;
+  }),
+  TE.chain(nv =>
+    pipe(
+      saveFile(nv.result, nv.args.scope),
+      TE.map(file => ({ file, ...nv.args }))
+    )
+  )
+);
+
+function errorToString(err: ErrorAdt): string {
+  switch (err.type) {
+    case "ArgError":
+      return `I cannot recognize this args
+${err.args}
+because: 
+${err.message}`;
+
+    case "FileReadError":
+      return `There was an error while reading the file: ${err.file}
+Here are more info: 
+${err.message}
+${JSON.stringify(err.stack)}`;
+
+    case "FileWriteError":
+      return `There was an error while writing the file: ${err.file}
+Here are more info: 
+${err.message}
+${JSON.stringify(err.stack)}`;
+
+    case "DecodingError":
+      return `Error while decoding file
+${err.message}`;
+  }
+}
+
 function main() {
   const boh = pipe(
-    TE.fromEither(readAndValidateArgs()),
-    TE.map(args => {
-      console.log(args);
-      return { ...args, scope: heroes[args.module][0] };
-    }),
-    TE.chain(args =>
-      pipe(
-        changeVersion(args.scope, args.module, args.version),
-        TE.map(result => ({ result, args }))
-      )
-    ),
-    TE.map(nv => {
-      console.log(nv);
-      return nv;
-    }),
-    TE.chain(nv => saveFile(nv.result, nv.args.scope))
+    program,
+    TE.fold(
+      e => {
+        return T.of(errorToString(e));
+      },
+      ok => {
+        return T.of(
+          `Succesfully modified ${ok.scope}/${ok.hero} with the new version ${ok.version}`
+        );
+      }
+    )
   );
 
-  boh().then(asd => {
-    console.log("asd");
-    console.log(asd);
+  boh().then(finalMessage => {
+    console.log(finalMessage);
   });
 }
 
