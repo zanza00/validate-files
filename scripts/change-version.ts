@@ -6,7 +6,12 @@ import * as TE from "fp-ts/lib/TaskEither";
 import * as E from "fp-ts/lib/Either";
 
 import { Heroes, SemVer } from "./models";
-import { readFile, formatError } from "./helpers";
+import {
+  readFile,
+  formatError,
+  prettyStringifyJson,
+  writeFile
+} from "./helpers";
 
 type Scope = "dccomics" | "marvel";
 
@@ -17,7 +22,7 @@ const heroes = {
   "spider-man ": ["marvel"],
   thor: ["marvel"],
   wolverine: ["marvel"],
-  "capitan-marvel": ["dccomics", "marvel"]
+  "capitan-marvel": ["dccomics", "marvel"] // <== this is in both files
 } as const;
 
 const AvailHeroes = t.keyof(heroes);
@@ -118,7 +123,7 @@ function changeVersion(
           e =>
             ({
               type: "DecodingError",
-              message: "Error while decoding modules.json"
+              message: "Error while decoding users.json"
             } as ErrorAdt)
         )
       )
@@ -131,12 +136,58 @@ function changeVersion(
   );
 }
 
+function saveFile(
+  heroes: Heroes,
+  scope: Scope
+): TE.TaskEither<ErrorAdt, string> {
+  const file = `files/${scope}/users.json`;
+  return pipe(
+    TE.fromEither(prettyStringifyJson(heroes)),
+    TE.mapLeft(
+      err =>
+        ({
+          type: "FileWriteError",
+          file,
+          message: "Error while converting back to json",
+          stack: err
+        } as ErrorAdt)
+    ),
+    TE.chain(str =>
+      pipe(
+        writeFile(file, str),
+        TE.bimap(
+          err =>
+            ({
+              type: "FileWriteError",
+              file,
+              message: "Error while writing the file",
+              stack: err
+            } as ErrorAdt),
+          () => file
+        )
+      )
+    )
+  );
+}
+
 function main() {
   const boh = pipe(
     TE.fromEither(readAndValidateArgs()),
+    TE.map(args => {
+      console.log(args);
+      return { ...args, scope: heroes[args.module][0] };
+    }),
     TE.chain(args =>
-      changeVersion(heroes[args.module][0], args.module, args.version)
-    )
+      pipe(
+        changeVersion(args.scope, args.module, args.version),
+        TE.map(result => ({ result, args }))
+      )
+    ),
+    TE.map(nv => {
+      console.log(nv);
+      return nv;
+    }),
+    TE.chain(nv => saveFile(nv.result, nv.args.scope))
   );
 
   boh().then(asd => {
