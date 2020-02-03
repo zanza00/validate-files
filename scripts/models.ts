@@ -27,7 +27,7 @@ const Hero = t.type({
 type Hero = t.TypeOf<typeof Hero>;
 
 export const Heroes = t.record(t.string, Hero);
-type Heroes = t.TypeOf<typeof Heroes>;
+export type Heroes = t.TypeOf<typeof Heroes>;
 
 const Group = t.type({
   zone: t.string,

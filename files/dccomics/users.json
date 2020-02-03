@@ -22,5 +22,13 @@
     "year": 1959,
     "origin": "Earth",
     "version": "3.1.0"
+  },
+  "capitan-marvel": {
+    "key": "capitan-marvel",
+    "name": "Billy Batson",
+    "heroName": "Shazam",
+    "year": 1946,
+    "origin": "Earth",
+    "version": "5.2.4"
   }
 }
