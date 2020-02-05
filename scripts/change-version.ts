@@ -5,6 +5,7 @@ import { pipe } from "fp-ts/lib/pipeable";
 import * as TE from "fp-ts/lib/TaskEither";
 import * as E from "fp-ts/lib/Either";
 import * as C from "fp-ts/lib/Console";
+import { array } from "fp-ts/lib/Array";
 
 import { Heroes, SemVer } from "./models";
 import {
@@ -24,7 +25,7 @@ const heroes = {
   thor: ["marvel"],
   wolverine: ["marvel"],
   "capitan-marvel": ["dccomics", "marvel"] // <== this is in both files
-} as const;
+};
 
 const AvailHeroes = t.keyof(heroes);
 
@@ -156,21 +157,27 @@ function saveFile(
 }
 
 type MetaData = {
-  scope: Scope;
+  scope: string[];
   hero: AvailHeroes;
   version: string;
-  file: string;
+  file: string[];
 };
 
 function program(args: object): TE.TaskEither<ErrorAdt, MetaData> {
   return pipe(
     TE.fromEither(readAndValidateArgs(args)),
     TE.chainFirst(() => TE.rightIO(C.log("Arguments are valid :)"))),
-    TE.map(args => ({ ...args, scope: heroes[args.hero][0] })),
+    TE.map(args => ({ ...args, scope: heroes[args.hero] })),
     TE.chain(args =>
       pipe(
-        changeVersion(args.scope, args.hero, args.version),
-        TE.map(result => ({ result, args }))
+        args.scope.map(scope =>
+          pipe(
+            changeVersion(scope as Scope, args.hero, args.version),
+            TE.map(result => ({ result, scope }))
+          )
+        ),
+        array.sequence(TE.taskEither),
+        TE.map(list => ({ list, args }))
       )
     ),
     TE.chainFirst(() =>
@@ -178,7 +185,8 @@ function program(args: object): TE.TaskEither<ErrorAdt, MetaData> {
     ),
     TE.chain(nv =>
       pipe(
-        saveFile(nv.result, nv.args.scope),
+        nv.list.map(({ result, scope }) => saveFile(result, scope as Scope)),
+        array.sequence(TE.taskEither),
         TE.map(file => ({ file, ...nv.args }))
       )
     )
