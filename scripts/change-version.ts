@@ -232,7 +232,9 @@ function main() {
         },
         ok => {
           console.log(
-            `Succesfully modified ${ok.scope}/${ok.hero} with the new version ${ok.version}`
+            `Succesfully modified${ok.scope.map(
+              s => ` ${s}/${ok.hero}`
+            )} with the new version ${ok.version}`
           );
         }
       )
