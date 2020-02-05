@@ -5,6 +5,7 @@ import { pipe } from "fp-ts/lib/pipeable";
 import * as TE from "fp-ts/lib/TaskEither";
 import * as T from "fp-ts/lib/Task";
 import * as E from "fp-ts/lib/Either";
+import * as C from "fp-ts/lib/Console";
 
 import { Heroes, SemVer } from "./models";
 import {
@@ -178,20 +179,17 @@ type MetaData = {
 };
 const program: TE.TaskEither<ErrorAdt, MetaData> = pipe(
   TE.fromEither(readAndValidateArgs()),
-  TE.map(args => {
-    console.log("Arguments are valid :)");
-    return { ...args, scope: heroes[args.hero][0] };
-  }),
+  TE.chainFirst(() => TE.rightIO(C.log("Arguments are valid :)"))),
+  TE.map(args => ({ ...args, scope: heroes[args.hero][0] })),
   TE.chain(args =>
     pipe(
       changeVersion(args.scope, args.hero, args.version),
       TE.map(result => ({ result, args }))
     )
   ),
-  TE.map(nv => {
-    console.log("Succesfully modified value, attempting to write");
-    return nv;
-  }),
+  TE.chainFirst(() =>
+    TE.rightIO(C.log("Succesfully modified value, attempting to write"))
+  ),
   TE.chain(nv =>
     pipe(
       saveFile(nv.result, nv.args.scope),
@@ -203,8 +201,8 @@ const program: TE.TaskEither<ErrorAdt, MetaData> = pipe(
 function errorToString(err: ErrorAdt): string {
   switch (err.type) {
     case "ArgError":
-      return `I cannot recognize this args
-${err.args}
+      return `This args are not valid
+${JSON.stringify(err.args)}
 because: 
 ${err.message}`;
 
@@ -227,23 +225,23 @@ ${err.message}`;
 }
 
 function main() {
-  const boh = pipe(
-    program,
-    TE.fold(
-      e => {
-        return T.of(errorToString(e));
-      },
-      ok => {
-        return T.of(
-          `Succesfully modified ${ok.scope}/${ok.hero} with the new version ${ok.version}`
-        );
-      }
+  program()
+    .then(
+      E.fold(
+        e => {
+          throw errorToString(e);
+        },
+        ok => {
+          console.log(
+            `Succesfully modified ${ok.scope}/${ok.hero} with the new version ${ok.version}`
+          );
+        }
+      )
     )
-  );
-
-  boh().then(finalMessage => {
-    console.log(finalMessage);
-  });
+    .catch(e => {
+      console.log(e);
+      process.exit(1);
+    });
 }
 
 main();
